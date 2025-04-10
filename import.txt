@@ -1,0 +1,323 @@
+This file includes all the cypher query that are necessary to run the database graph model in neo4j
+
+
+//Importing City.csv
+
+LOAD CSV WITH HEADERS FROM 'file:///City.csv' AS row
+CREATE (c:City {
+    CityID: toInteger(row.CityID),
+    CityName: row.CityName,
+    ZipCode: toInteger(row.ZipCode),
+    Country: row.Country,
+    StreetNumber: row.StreetNumber
+})
+
+
+
+//Importing Employee.csv
+
+LOAD CSV WITH HEADERS FROM 'file:///Employee.csv' AS row
+CREATE (e:Employee {
+    EmployeeID: toInteger(row.EmployeeID),
+    FirstName: row.FirstName,
+    LastName: row.LastName,
+    Position: row.Position,
+    MobileNumber: row.MobileNumber,
+    HotelID: toInteger(row.HotelID),
+    SupervisorID: toInteger(row.SupervisorID),
+    WorkingHour: toInteger(row.WorkingHour)
+})
+
+
+
+//Importing EmployeeEmail.csv
+
+LOAD CSV WITH HEADERS FROM 'file:///EmoloyeeEmail.csv' AS row
+MATCH (e:Employee {EmployeeID: toInteger(row.EmployeeID)})
+SET e.Email = row.Email
+
+
+//Importing Guest.csv
+
+LOAD CSV WITH HEADERS FROM 'file:///Guest.csv' AS row
+CREATE (g:Guest {
+    GuestID: toInteger(row.GuestID),
+    MobileNumber: row.MobileNumber,
+    FirstName: row.FirstName,
+    LastName: row.LastName,
+    CityID: toInteger(row.CityID),
+    DateOfBirth: row.DateOfBirth,
+    Age: toInteger(row.Age)
+})
+
+
+//Importing GuestEmail.csv
+
+LOAD CSV WITH HEADERS FROM 'file:///GuestEmail.csv' AS row
+MATCH (g:Guest {GuestID: toInteger(row.GuestID)})
+SET g.Emails = CASE WHEN g.Emails IS NOT NULL THEN g.Emails + row.Email ELSE [row.Email] END
+
+
+
+//Importing Hotel.csv
+
+LOAD CSV WITH HEADERS FROM 'file:///Hotel.csv' AS row
+CREATE (h:Hotel {
+    HotelID: toInteger(row.HotelID),
+    HotelName: row.HotelName
+})
+
+
+
+//Importing Invoice.csv
+
+LOAD CSV WITH HEADERS FROM 'file:///Invoice.csv' AS row
+CREATE (i:Invoice {
+    InvoiceID: toInteger(row.InvoiceID),
+    ServiceCharge: toInteger(row.ServiceCharge),
+    TotalAmount: toInteger(row.TotalAmount),
+    PaymentID: toInteger(row.PaymentID)
+})
+
+
+//Importing Payment
+
+LOAD CSV WITH HEADERS FROM 'file:///Payment.csv' AS row
+CREATE (p:Payment {
+    PaymentID: toInteger(row.PaymentID),
+    PaymentMode: row.PaymentMode,
+    PaymentDate: row.PaymentDate,
+    GuestID: toInteger(row.GuestID)
+})
+
+
+
+//Importing Reservation.csv
+
+LOAD CSV WITH HEADERS FROM 'file:///Reservation.csv' AS row
+CREATE (r:Reservation {
+    ReservationID: toInteger(row.ReservationID),
+    CheckInDate: row.CheckInDate,
+    CheckOutDate: row.CheckOutDate,
+    GuestID: toInteger(row.GuestID),
+    InvoiceID: toInteger(row.InvoiceID)
+})
+
+
+
+//Importing Room.csv
+
+LOAD CSV WITH HEADERS FROM 'file:///Room.csv' AS row
+CREATE (r:Room {
+    RoomID: toInteger(row.RoomID),
+    RoomRate: toFloat(row.RoomRate),
+    ReservationID: toInteger(row.ReservationID),
+    Bedding: row.Bedding,
+    HotelID: toInteger(row.HotelID)
+})
+
+
+
+// Importing Service.csv
+
+LOAD CSV WITH HEADERS FROM 'file:///Service.csv' AS row
+CREATE (s:Service {
+    ServiceID: toInteger(row.ServiceID),
+    ServiceName: row.ServiceName,
+    ServiceRate: toFloat(row.ServiceRate),
+    EmployeeID: toInteger(row.EmployeeID),
+    ReservationID: toInteger(row.ReservationID)
+})
+
+
+
+//Importing StandardRoom.csv
+
+LOAD CSV WITH HEADERS FROM 'file:///StandardRoom.csv' AS row
+CREATE (st:StandardRoom {
+    RoomID: toInteger(row.RoomID),
+    Balcony: CASE WHEN row.Balcony = "1" THEN true ELSE false END
+})
+
+
+
+
+//Importing SuiteRoom.csv
+ 
+LOAD CSV WITH HEADERS FROM 'file:///SuiteRoom.csv' AS row
+CREATE (sr:SuiteRoom {
+    RoomID: toInteger(row.RoomID),
+    View: row.View
+})
+
+
+
+Relationship
+
+
+//For City and Guest
+
+MATCH (g:Guest), (c:City)
+WHERE g.CityID = c.CityID
+CREATE (g)-[:RESIDES_IN]->(c)
+
+
+
+//For Employee and Hotel
+
+MATCH (e:Employee), (h:Hotel)
+WHERE e.HotelID = h.HotelID
+CREATE (e)-[:WORKS_AT]->(h)
+
+
+
+//For Employee Supervise
+
+MATCH (e1:Employee), (e2:Employee)
+WHERE e1.EmployeeID = e2.SupervisorID
+CREATE (e1)-[:SUPERVISES]->(e2)
+
+
+
+//For Reservation and Guest
+
+MATCH (r:Reservation), (g:Guest)
+WHERE r.GuestID = g.GuestID
+CREATE (r)-[:MADE_BY]->(g)
+
+
+
+//For Reservation and Invoice
+
+MATCH (r:Reservation), (i:Invoice)
+WHERE r.InvoiceID = i.InvoiceID
+CREATE (r)-[:HAS]->(i)
+
+
+
+//For Invoice and Payment
+
+MATCH (i:Invoice), (p:Payment)
+WHERE i.PaymentID = p.PaymentID
+CREATE (i)-[:HAS_PAYMENT]->(p)
+
+
+
+//For Service and Employee
+
+MATCH (s:Service), (e:Employee)
+WHERE s.EmployeeID = e.EmployeeID
+CREATE (s)-[:PROVIDED_BY]->(e)
+
+
+
+//For Service and Reservation
+
+MATCH (s:Service), (r:Reservation)
+WHERE s.ReservationID = r.ReservationID
+CREATE (s)-[:USED_IN]->(r)
+
+
+
+//For Room and Reservation
+
+MATCH (ro:Room), (r:Reservation)
+WHERE ro.ReservationID = r.ReservationID
+CREATE (ro)-[:BOOKED_IN]->(r)
+
+
+
+//For Room and Hotel
+
+MATCH (ro:Room), (h:Hotel)
+WHERE ro.HotelID = h.HotelID
+CREATE (ro)-[:IS_IN]->(h)
+
+
+
+//For Suite and Room
+
+MATCH (sr:SuiteRoom), (ro:Room)
+WHERE sr.RoomID = ro.RoomID
+CREATE (sr)-[:TYPE_OF]->(ro)
+
+
+
+//For StandardRoom and Room
+
+MATCH (st:StandardRoom), (ro:Room)
+WHERE st.RoomID = ro.RoomID
+CREATE (st)-[:SIZE_OF]->(ro)
+
+
+
+//For Payment and Guest
+
+MATCH (p:Payment), (g:Guest)
+WHERE p.GuestID = g.GuestID
+CREATE (p)-[:MADE_BY]->(g)
+
+
+
+
+
+Index
+
+//For city
+
+CREATE INDEX index_city_id FOR (c:City) ON (c.CityID)
+
+
+//For Employee
+
+CREATE INDEX index_employee_id FOR (e:Employee) ON (e.EmployeeID)
+
+
+//For Guest
+
+CREATE INDEX index_guest_id FOR (g:Guest) ON (g.GuestID)
+
+
+//For Hotel
+
+CREATE INDEX index_hotel_id FOR (h:Hotel) ON (h.HotelID)
+
+
+//For Invoice
+
+CREATE INDEX index_invoice_id FOR (i:Invoice) ON (i.InvoiceID)
+
+
+//For Payment
+
+CREATE INDEX index_payment_id FOR (p:Payment) ON (p.PaymentID)
+
+
+//For Reservation
+
+CREATE INDEX index_reservation_id FOR (r:Reservation) ON (r.ReservationID)
+
+
+//For Room
+
+CREATE INDEX index_room_id FOR (r:Room) ON (r.RoomID)
+
+
+//For Service
+
+CREATE INDEX index_service_id FOR (s:Service) ON (s.ServiceID)
+
+
+For StandardRoom
+CREATE INDEX index_standard_room_id FOR (st:StandardRoom) ON (st.RoomID)
+
+
+//For SuiteRoom
+
+CREATE INDEX index_suite_room_id FOR (sr:SuiteRoom) ON (sr.RoomID)
+
+
+
+
+
+

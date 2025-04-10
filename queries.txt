@@ -1,0 +1,189 @@
+QueryNo1
+
+Find the top 3 employees who have provided the most services.
+Practical Scenario: Management wants to reward the top 3 employees who have been the most service-oriented in the past year.
+
+Cypher Query:
+MATCH (s:Service)-[:PROVIDED_BY]->(e:Employee)
+WITH e, COUNT(s) AS TotalServices
+ORDER BY TotalServices DESC
+LIMIT 3
+RETURN e.FirstName AS FirstName, e.LastName AS LastName, TotalServices
+
+Expected Result:
+A list of the top 3 employees and the number of services they've provided.
+
+
+
+
+
+
+Query No2
+
+Scenario: "Consolidated Guest Inquiry"
+
+Background:  
+In a hotel's day-to-day operations, it's common for guests to have queries about their payments and reservations. Quick access to consolidated information is vital for efficient guest service.
+
+Use Case: 
+A guest, after checking out, wants to verify the payment made and cross-check the reservation details. The front desk staff uses the system to pull up the recent payment and reservation details for the guest.
+
+Cypher Query:  
+MATCH (p:Payment)-[:MADE_BY]->(g:Guest), (r:Reservation)-[:MADE_BY]->(g)
+RETURN 
+    g.GuestID AS GuestID, 
+    g.FirstName AS FirstName, 
+    g.LastName AS LastName, 
+    p.PaymentID AS PaymentID, 
+    p.PaymentDate AS PaymentDate, 
+    p.PaymentMode AS PaymentMode,
+    r.ReservationID AS ReservationID,
+    r.CheckInDate AS CheckInDate,
+    r.CheckOutDate AS CheckOutDate
+ORDER BY g.LastName, g.FirstName, p.PaymentDate
+LIMIT 5;
+
+Expected Result:
+A tabulated result displaying the guest's ID, name, payment details (ID, date, mode), and reservation details (ID, check-in and check-out dates) for the last 5 transactions or interactions. This allows the staff to quickly verify and confirm the guest's queries.
+
+
+
+
+
+
+Query No3
+
+Scenario: "Top Service Providers"
+
+Background:  
+In hotels, the quality of services provided can significantly impact guest satisfaction. Evaluating service rates can offer insights into employee performance and the perceived value of services rendered.
+
+Use Case:  
+The hotel management wants to identify the top-performing employees based on the average rates of the services they provide. This is crucial for recognizing and rewarding outstanding performance and for determining areas of training or improvement.
+
+Cypher Query:  
+MATCH (s:Service)-[:PROVIDED_BY]->(e:Employee)
+WITH e, AVG(s.ServiceRate) AS AverageRate
+ORDER BY AverageRate DESC
+LIMIT 3
+RETURN e.FirstName AS FirstName, e.LastName AS LastName, AverageRate
+
+
+Expected Result:  
+A list displaying the first and last names of the top 3 employees who have the highest average service rates, along with their corresponding average rates. This provides a quick overview of the standout performers in the hotel's service domain.
+
+
+
+
+
+
+Query no 4
+
+Scenario: Identifying Frequent Guests and Their Preferences
+Description:
+To enhance the guest experience, a hotel chain wants to recognize its frequent visitors and understand their preferences during their stays.
+
+Cypher Query:
+The query identifies guests who have made multiple payments, indicating frequent visits or availing of multiple services. It then lists the services they've often used and the hotels they've stayed in.
+
+Results:
+The output shows each guest's name, the services they've availed, their total payments, and the hotels they've visited.
+
+Use Case:
+By understanding frequent guests and their preferences, the hotel can offer personalized services or deals to enhance their next visit.
+
+query
+
+MATCH (g:Guest)<-[:MADE_BY]-(p:Payment),
+      (g)<-[:MADE_BY]-(r:Reservation),
+      (ro:Room)-[:BOOKED_IN]->(r),
+      (ro)-[:IS_IN]->(h:Hotel),
+      (s:Service)-[:USED_IN]->(r)
+WITH g, h, COLLECT(DISTINCT s.ServiceName) AS ServicesAvailed, COUNT(DISTINCT p) AS PaymentCount, COUNT(DISTINCT h) AS HotelCount
+WHERE PaymentCount > 1
+RETURN 
+    g.FirstName AS GuestFirstName,
+    g.LastName AS GuestLastName,
+    ServicesAvailed,
+    PaymentCount,
+    COLLECT(DISTINCT h.HotelName) AS HotelsVisited,
+    HotelCount
+ORDER BY PaymentCount DESC, HotelCount DESC
+LIMIT 10;
+
+
+
+
+
+Centrality algorithms
+
+1. Create a projected graph of guests and their connections.  
+This involves creating a graph projection of the current Neo4j graph tailored for the algorithm.
+
+cypher
+CALL gds.graph.project(
+    'guest_network',
+    'Guest',
+    {
+        MADE_BY: {
+            orientation: 'UNDIRECTED'
+        }
+    }
+)
+
+
+2.Run the PageRank algorithm on the projected graph.  
+This will calculate the PageRank score for each guest.
+
+cypher
+CALL gds.pageRank.stream('guest_network')
+YIELD nodeId, score
+RETURN gds.util.asNode(nodeId).FirstName AS Guest, score
+ORDER BY score DESC
+LIMIT 10;
+
+
+3. Interpret the results. 
+The guests with the highest PageRank scores are considered the most influential in the network.
+
+
+
+
+
+
+Similarity algorithms
+
+1. Employee Role Analysis:
+   The hotel chain's database has a record of each employee's role or position. The first step is to identify employees with similar roles, as they are likely to have similar responsibilities and skill sets.
+cypher
+
+   MATCH (e1:Employee), (e2:Employee)
+   WHERE e1.Position = e2.Position AND id(e1) < id(e2)
+   CREATE (e1)-[:SIMILAR_TO]->(e2);
+
+   This query creates `SIMILAR_TO` relationships between employees holding the same position, indicating potential similarities in their job responsibilities.
+
+2.Graph Projection:
+   To ensure efficient analysis using GDSL, the data is projected into an in-memory graph named `employee_similarity_graph`.
+
+cypher
+
+   CALL gds.graph.project(
+       'employee_similarity_graph', 
+       'Employee', 
+       {SIMILAR_TO: {type: 'SIMILAR_TO', orientation: 'UNDIRECTED'}}
+   );
+
+
+3.Similarity Analysis:
+   The Jaccard Similarity algorithm is then applied to identify pairs of employees with the highest similarity scores based on their roles.
+
+cypher
+
+   CALL gds.nodeSimilarity.stream('employee_similarity_graph')
+   YIELD node1, node2, similarity
+   RETURN gds.util.asNode(node1).FirstName AS Employee1, 
+          gds.util.asNode(node2).FirstName AS Employee2, 
+          similarity AS JaccardSimilarity
+   ORDER BY JaccardSimilarity DESC
+   LIMIT 10;
