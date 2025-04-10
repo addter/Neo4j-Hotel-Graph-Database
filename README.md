@@ -1,0 +1,1 @@
+This project involved designing and implementing a graph-based database using Neo4j for a hotel chain to better understand relationships between guests, rooms, and transactions. The graph model provides greater flexibility and efficiency for complex queries like loyalty tracking, frequent co-travelers, and high-value customer clusters.
